@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Created By: Douglas R. Reno <renodr at linuxfromscratch dot org>
+# Date: 2022-08-08
+# Purpose: Simplifies searching for programs (or libraries) which link to a
+#          given library. It will only search for shared libraries.
+
+# Perform some rudimentary input validation - if the user didn't request
+# anything, or passed '-h', let's print help text and exit.
+if [ -z $1 ] || [ $1 == "-h" ]
+then
+   echo "Usage: ldds filename.so"
+   echo "Example: ldds libc.so.6"
+   exit 1
+fi
+
+# Let's use a 'for' loop to iterate through the files.
+# Note that we're limiting ourselves to files in /usr and /opt.
+# On a split-usr system, this won't be very effective.
+for f in $(find /usr -type f -name '*.so' 2>/dev/null) \
+         $(find /opt -type f -name '*.so' 2>/dev/null) \
+         $(find /usr/{bin,sbin,libexec} -executable)                      \
+         $(find /opt -executable)
+do
+   # Get the output from 'ldd' on $f (the file name)
+   lddout="$(ldd $f 2>&1 | grep $1)"
+
+   # This could use some explanation:
+   # We're doing two exclusion operations here:
+   # 1 - if ldd reports "not a dynamic executable", we should skip it.
+   # 2 - if ldd doesn't have any output, we don't need to output the file name
+   #     since it doesn't link to a library.
+   if [ "$lddout" != "not a dynamic executable" ] && [ -n "$lddout" ]
+   then
+      echo $f
+   fi
+   unset lddout
+done
